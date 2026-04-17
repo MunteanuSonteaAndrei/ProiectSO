@@ -1,36 +1,61 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <errno.h>
 
-typedef struct report{
+#define MAX_PATH 256
+#define STR_LEN 32
+
+char currentRole[STR_LEN];
+char currentUser[STR_LEN];
+
+typedef struct {
     int id;
-    char inspectorName[20];
-    float x;
-    float y;
-    char issueCategory[20];
+    char inspector[STR_LEN];
+    float lat;
+    float lon;
+    char category[STR_LEN];
     int severity;
-    
-}report;
+    time_t timestamp;
+    char description[128];
+} Report;
 
-int verifyDirectory(const char *path){
-    struct stat stats;
-    stat(path, &stats);
-    if (S_ISDIR(stats.st_mode)){
-        return 1;
-    }
-    return 0;
+void modeToString(mode_t mode, char *str) {
+    strcpy(str, "---------");
+    if (mode & S_IRUSR) str[0] = 'r';
+    if (mode & S_IWUSR) str[1] = 'w';
+    if (mode & S_IXUSR) str[2] = 'x';
+    if (mode & S_IRGRP) str[3] = 'r';
+    if (mode & S_IWGRP) str[4] = 'w';
+    if (mode & S_IXGRP) str[5] = 'x';
+    if (mode & S_IROTH) str[6] = 'r';
+    if (mode & S_IWOTH) str[7] = 'w';
+    if (mode & S_IXOTH) str[8] = 'x';
 }
 
-void add(char *district_name){
-    if(!verifyDirectory(district_name)){
-        mkdir(district_name, 'x');
-        chdir(district_name);
-        open();
-        open();
-        open();
+int hasPermission(const char *path, mode_t reqOwner, mode_t reqGroup) {
+    struct stat st;
+    if (stat(path, &st) == -1) return 1;
+    if (strcmp(currentRole, "manager") == 0) {
+        if ((st.st_mode & reqOwner) != reqOwner) {
+            printf("Eroare! Managerul nu are permisiuni pe %s\n", path);
+            return 0;
+        }
+    } else if (strcmp(currentRole, "inspector") == 0) {
+        if ((st.st_mode & reqGroup) != reqGroup) {
+            printf("Eroare! Inspectorul nu are permisiuni pe %s\n", path);
+            return 0;
+        }
     }
-
+    return 1;
 }
+
+void add(char *district_name){}
 
 void list(){}
 

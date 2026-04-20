@@ -1,0 +1,17 @@
+[1776643332] Role: inspector | User: alex | Act: ADD
+[1776643385] Role: manager | User: sefu | Act: ADD
+[1776643392] Role: inspector | User: alex | Act: LIST
+[1776643405] Role: inspector | User: alex | Act: VIEW
+[1776643416] Role: manager | User: sefu | Act: FILTER
+[1776643474] Role: manager | User: sefu | Act: UPDATE_THRESHOLD
+[1776643502] Role: manager | User: sefu | Act: REMOVE
+[1776643660] Role: manager | User: sefu | Act: FILTER
+[1776643706] Role: manager | User: sefu | Act: FILTER
+[1776643737] Role: inspector | User: alex | Act: ADD
+[1776643775] Role: manager | User: sefu | Act: ADD
+[1776643779] Role: inspector | User: alex | Act: LIST
+[1776643789] Role: inspector | User: alex | Act: VIEW
+[1776643819] Role: manager | User: sefu | Act: FILTER
+[1776643835] Role: manager | User: sefu | Act: UPDATE_THRESHOLD
+[1776643845] Role: manager | User: sefu | Act: REMOVE
+[1776643852] Role: manager | User: sefu | Act: LIST

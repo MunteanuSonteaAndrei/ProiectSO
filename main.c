@@ -221,7 +221,6 @@ void view(const char *district, int targetId) {
             printf("Severitate: %d\n", r.severity);
             printf("Data inregistrarii: %s", ctime(&r.timestamp));
             printf("Descriere: %s\n", r.description);
-            printf("--------------------------\n");
             found = 1;
             break;
         }

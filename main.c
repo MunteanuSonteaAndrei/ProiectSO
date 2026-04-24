@@ -44,7 +44,17 @@ void modeToString(mode_t mode, char *str) {
 
 int hasPermission(const char *path, mode_t reqOwner, mode_t reqGroup) {
     struct stat st;
-    if (stat(path, &st) == -1) return 1;
+    if (stat(path, &st) == -1) {
+        char dirPath[MAX_PATH];
+        strncpy(dirPath, path, MAX_PATH - 1);
+        dirPath[MAX_PATH - 1] = '\0';
+        char *slash = strrchr(dirPath, '/');
+        if (slash) *slash = '\0';
+        else strcpy(dirPath, ".");
+        
+        if (stat(dirPath, &st) == -1) return 0;
+    }
+    
     if (strcmp(currentRole, "manager") == 0) {
         if ((st.st_mode & reqOwner) != reqOwner) {
             printf("Eroare! Managerul nu are permisiuni pe %s\n", path);
@@ -78,20 +88,20 @@ void logOperation(const char *district, const char *action) {
 
 int parseCondition(const char *input, char *field, char *op, char *value) {
     char temp[256];
-    strncpy(temp, input, sizeof(temp));
+    strncpy(temp, input, sizeof(temp) - 1);
     temp[sizeof(temp) - 1] = '\0';
 
     char *token = strtok(temp, ":");
     if (!token) return 0;
-    strcpy(field, token);
+    strncpy(field, token, 31); field[31] = '\0';
 
     token = strtok(NULL, ":");
     if (!token) return 0;
-    strcpy(op, token);
+    strncpy(op, token, 3); op[3] = '\0';
 
     token = strtok(NULL, "");
     if (!token) return 0;
-    strcpy(value, token);
+    strncpy(value, token, 63); value[63] = '\0';
 
     return 1;
 }
@@ -150,9 +160,12 @@ void add(const char *district) {
     strcpy(r.inspector, currentUser);
     printf("X: "); scanf("%f", &r.lat);
     printf("Y: "); scanf("%f", &r.lon);
-    printf("Categorie (road/lighting/flooding): "); scanf("%s", r.category);
+    printf("Categorie (road/lighting/flooding): "); scanf("%31s", r.category);
     printf("Severitate (1-3): "); scanf("%d", &r.severity);
-    getchar();
+    
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+    
     printf("Descriere scurta: "); fgets(r.description, 128, stdin);
     r.description[strcspn(r.description, "\n")] = 0;
 
@@ -347,13 +360,22 @@ void filter(const char *district, int condCount, char *conditions[]) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 6) {
+    if (argc < 7) {
         printf("Numar incorect de argumente!\n");
         return 1;
     }
 
-    strcpy(currentRole, argv[2]);
-    strcpy(currentUser, argv[4]);
+    if (strchr(argv[6], '/') != NULL || strchr(argv[6], '.') != NULL) {
+        printf("Nume de district invalid! Fara caractere speciale.\n");
+        return 1;
+    }
+
+    strncpy(currentRole, argv[2], STR_LEN - 1);
+    currentRole[STR_LEN - 1] = '\0';
+    
+    strncpy(currentUser, argv[4], STR_LEN - 1);
+    currentUser[STR_LEN - 1] = '\0';
+    
     char *cmd = argv[5];
     char *district = argv[6];
 

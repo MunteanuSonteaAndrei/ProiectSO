@@ -185,7 +185,7 @@ void add(const char *district) {
 
     Report r;
     r.id = getNextId(district);
-    printf("ID alocat automat: %d\n", r.id);
+    printf("ID: %d\n", r.id);
     
     strcpy(r.inspector, currentUser);
     printf("X: "); scanf("%f", &r.lat);
@@ -232,10 +232,9 @@ void list(const char *district) {
     if (fd == -1) return;
 
     Report r;
-    printf("\nID\tInspector\tCategorie\tSeveritate\n");
-    printf("--------------------------------------------------\n");
+    printf("\nID,Inspector,Categorie,Severitate\n");
     while (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
-        printf("%d\t%s\t\t%s\t\t%d\n", r.id, r.inspector, r.category, r.severity);
+        printf("%d   %s   %s   %d\n", r.id, r.inspector, r.category, r.severity);
     }
     close(fd);
     logOperation(district, "LIST");

@@ -16,3 +16,10 @@
 [1776643845] Role: manager | User: sefu | Act: REMOVE
 [1776643852] Role: manager | User: sefu | Act: LIST
 [1777065436] Role: inspector | User: alin | Act: ADD
+[1777066060] Role: inspector | User: bob | Act: LIST
+[1777066085] Role: manager | User: alice | Act: REMOVE
+[1777066088] Role: inspector | User: bob | Act: LIST
+[1777066090] Role: manager | User: alice | Act: REMOVE
+[1777066091] Role: inspector | User: bob | Act: LIST
+[1777066095] Role: manager | User: alice | Act: REMOVE
+[1777066097] Role: inspector | User: bob | Act: LIST

@@ -145,6 +145,34 @@ void initDistrict(const char *district) {
     symlink(targetPath, symlinkName);
 }
 
+int getNextId(const char *district) {
+    char path[MAX_PATH];
+    buildPath(path, district, "next_id.txt");
+    int id = 1;
+    
+    int fd = open(path, O_RDONLY);
+    if (fd != -1) {
+        char buf[32];
+        ssize_t bytes = read(fd, buf, sizeof(buf) - 1);
+        if (bytes > 0) {
+            buf[bytes] = '\0';
+            id = atoi(buf);
+        }
+        close(fd);
+    }
+    
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+    if (fd != -1) {
+        chmod(path, 0664);
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%d\n", id + 1);
+        write(fd, buf, strlen(buf));
+        close(fd);
+    }
+    
+    return id;
+}
+
 void add(const char *district) {
     char path[MAX_PATH];
     buildPath(path, district, "reports.dat");
@@ -156,7 +184,9 @@ void add(const char *district) {
     chmod(path, 0664);
 
     Report r;
-    printf("ID: "); scanf("%d", &r.id);
+    r.id = getNextId(district);
+    printf("ID alocat automat: %d\n", r.id);
+    
     strcpy(r.inspector, currentUser);
     printf("X: "); scanf("%f", &r.lat);
     printf("Y: "); scanf("%f", &r.lon);

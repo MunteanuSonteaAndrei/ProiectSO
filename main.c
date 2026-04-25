@@ -25,59 +25,75 @@ typedef struct {
     char description[128];
 } Report;
 
+// Construieste calea completa catre un fisier dintr-un district
 void buildPath(char *dest, const char *district, const char *filename) {
     snprintf(dest, MAX_PATH, "%s/%s", district, filename);
 }
 
+// Transformă o masca de permisiuni (ex: 0644) intr-un string lizibil de tip "rw-r--r--"
 void modeToString(mode_t mode, char *str) {
-    strcpy(str, "---------");
-    if (mode & S_IRUSR) str[0] = 'r';
-    if (mode & S_IWUSR) str[1] = 'w';
-    if (mode & S_IXUSR) str[2] = 'x';
-    if (mode & S_IRGRP) str[3] = 'r';
+    strcpy(str, "---------"); // Pornim de la premisa ca nu are nicio permisiune
+    if (mode & S_IRUSR) str[0] = 'r'; // Verificăm bitul de Read pentru Owner
+    if (mode & S_IWUSR) str[1] = 'w'; // Verificăm bitul de Write pentru Owner
+    if (mode & S_IXUSR) str[2] = 'x'; // Verificăm bitul de Execute pentru Owner
+    if (mode & S_IRGRP) str[3] = 'r'; // La fel pentru Group...
     if (mode & S_IWGRP) str[4] = 'w';
     if (mode & S_IXGRP) str[5] = 'x';
-    if (mode & S_IROTH) str[6] = 'r';
+    if (mode & S_IROTH) str[6] = 'r'; // La fel pentru Others...
     if (mode & S_IWOTH) str[7] = 'w';
     if (mode & S_IXOTH) str[8] = 'x';
 }
 
+// Verifica daca utilizatorul curent are voie sa acceseze un fisier, in functie de rol
 int hasPermission(const char *path, mode_t reqOwner, mode_t reqGroup) {
     struct stat st;
+    
+    // Dacă fisierul nu exista inca, verificăm permisiunile folderului parinte
     if (stat(path, &st) == -1) {
         char dirPath[MAX_PATH];
         strncpy(dirPath, path, MAX_PATH - 1);
         dirPath[MAX_PATH - 1] = '\0';
-        char *slash = strrchr(dirPath, '/');
+        
+        char *slash = strrchr(dirPath, '/'); // Gasim ultimul slash pentru a izola folderul
         if (slash) *slash = '\0';
         else strcpy(dirPath, ".");
         
-        if (stat(dirPath, &st) == -1) return 0;
+        if (stat(dirPath, &st) == -1) return 0; // Dacă nici folderul nu exista, nu avem permisiuni
     }
     
+    // Managerul primește permisiunile de 'Owner' (User)
     if (strcmp(currentRole, "manager") == 0) {
         if ((st.st_mode & reqOwner) != reqOwner) {
             printf("Eroare! Managerul nu are permisiuni pe %s\n", path);
             return 0;
         }
-    } else if (strcmp(currentRole, "inspector") == 0) {
+    } 
+    // Inspectorul primeste permisiunile de 'Group'
+    else if (strcmp(currentRole, "inspector") == 0) {
         if ((st.st_mode & reqGroup) != reqGroup) {
             printf("Eroare! Inspectorul nu are permisiuni pe %s\n", path);
             return 0;
         }
+    } 
+    // Dacă rolul nu este recunoscut, blocam accesul
+    else {
+        printf("Eroare! Rol necunoscut: %s\n", currentRole);
+        return 0;
     }
-    return 1;
+    return 1; // Permisiune acordata
 }
 
+// Salvează orice actiune importantă in fisierul de log
 void logOperation(const char *district, const char *action) {
     char path[MAX_PATH];
     buildPath(path, district, "logged_district");
 
     if (!hasPermission(path, S_IWUSR, 0)) return; 
 
+    // Deschidem in modul APPEND pentru a scrie la finalul fisierului
     int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
     if (fd != -1) {
-        chmod(path, 0644); 
+        chmod(path, 0644); // Fortam permisiunile in caz ca a fost proaspat creat
         char entry[256];
         snprintf(entry, sizeof(entry), "[%ld] Role: %s | User: %s | Act: %s\n", 
                  time(NULL), currentRole, currentUser, action);
@@ -86,6 +102,7 @@ void logOperation(const char *district, const char *action) {
     }
 }
 
+// Sparge un string de tip "severitate:>=:2" in trei bucati: camp, operator, valoare
 int parseCondition(const char *input, char *field, char *op, char *value) {
     char temp[256];
     strncpy(temp, input, sizeof(temp) - 1);
@@ -103,9 +120,10 @@ int parseCondition(const char *input, char *field, char *op, char *value) {
     if (!token) return 0;
     strncpy(value, token, 63); value[63] = '\0';
 
-    return 1;
+    return 1; // Parsare cu succes
 }
 
+// Evaluează daca un raport (r) respecta o conditie anume (ex: severity >= 2)
 int matchCondition(Report *r, const char *field, const char *op, const char *value) {
     if (strcmp(field, "severity") == 0) {
         int val = atoi(value);
@@ -127,13 +145,14 @@ int matchCondition(Report *r, const char *field, const char *op, const char *val
         if (strcmp(op, ">") == 0) return r->timestamp > val;
         if (strcmp(op, "<") == 0) return r->timestamp < val;
     }
-    return 0;
+    return 0; // Returneaza false daca operatorul sau campul nu sunt recunoscute
 }
 
+// Creează folderul districtului si legatura simbolica, dacă nu exista
 void initDistrict(const char *district) {
     struct stat st;
     if (stat(district, &st) == -1) {
-        mkdir(district, 0750);
+        mkdir(district, 0750); // Doar managerul (owner) si inspectorii (group) au acces
         chmod(district, 0750);
     }
     
@@ -141,14 +160,15 @@ void initDistrict(const char *district) {
     snprintf(symlinkName, MAX_PATH, "active_reports-%s", district);
     buildPath(targetPath, district, "reports.dat");
     
-    unlink(symlinkName); 
-    symlink(targetPath, symlinkName);
+    unlink(symlinkName); // stergem vechiul symlink in caz ca era corupt
+    symlink(targetPath, symlinkName); // Cream unul nou care pointează catre rapoarte
 }
 
+// Citeste urmatorul ID disponibil si il incrementează în fisierul next_id.txt
 int getNextId(const char *district) {
     char path[MAX_PATH];
     buildPath(path, district, "next_id.txt");
-    int id = 1;
+    int id = 1; // Default pornim de la 1
     
     int fd = open(path, O_RDONLY);
     if (fd != -1) {
@@ -156,11 +176,12 @@ int getNextId(const char *district) {
         ssize_t bytes = read(fd, buf, sizeof(buf) - 1);
         if (bytes > 0) {
             buf[bytes] = '\0';
-            id = atoi(buf);
+            id = atoi(buf); // Convertim stringul din fisier în număr
         }
         close(fd);
     }
     
+    // Suprascriem fișierul cu ID-ul actualizat pentru următoarea adăugare
     fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0664);
     if (fd != -1) {
         chmod(path, 0664);
@@ -173,6 +194,7 @@ int getNextId(const char *district) {
     return id;
 }
 
+// Funcția pentru comanda --add: insereaza un raport nou la finalul binarului
 void add(const char *district) {
     char path[MAX_PATH];
     buildPath(path, district, "reports.dat");
@@ -180,47 +202,61 @@ void add(const char *district) {
     if (!hasPermission(path, S_IWUSR, S_IWGRP)) return;
 
     int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0664);
-    if (fd == -1) return;
+    if (fd == -1) {
+        perror("Eroare la deschiderea fișierului de rapoarte");
+        return;
+    }
     chmod(path, 0664);
 
     Report r;
     r.id = getNextId(district);
-    printf("ID: %d\n", r.id);
+    printf("ID-ul alocat: %d\n", r.id);
     
     strcpy(r.inspector, currentUser);
-    printf("X: "); scanf("%f", &r.lat);
-    printf("Y: "); scanf("%f", &r.lon);
+    
+    // Cerem coordonatele si verificam dacă utilizatorul a introdus numere valide
+    printf("X: "); 
+    if (scanf("%f", &r.lat) != 1) { printf("Eroare X!\n"); close(fd); return; }
+    
+    printf("Y: "); 
+    if (scanf("%f", &r.lon) != 1) { printf("Eroare Y!\n"); close(fd); return; }
+    
     printf("Categorie (road/lighting/flooding): "); scanf("%31s", r.category);
     printf("Severitate (1-3): "); scanf("%d", &r.severity);
     
+    // Dupa ultimul scanf, ramane un caracter 'Enter' (\n) în buffer. Îl curățăm ca să meargă fgets.
     int c;
     while ((c = getchar()) != '\n' && c != EOF);
     
-    printf("Descriere scurta: "); fgets(r.description, 128, stdin);
-    r.description[strcspn(r.description, "\n")] = 0;
+    printf("Descriere scurta: "); 
+    fgets(r.description, 128, stdin);
+    r.description[strcspn(r.description, "\n")] = 0; // Eliminam \n  pus automat de fgets
 
     r.timestamp = time(NULL);
-    write(fd, &r, sizeof(Report));
+    write(fd, &r, sizeof(Report)); // Scriem toata structura binar in fisier
     close(fd);
     
     logOperation(district, "ADD");
     printf("Raport adaugat!\n");
 }
 
+// Funcția pentru comanda --list: citeste rapoartele rand pe rand din binar
 void list(const char *district) {
     char path[MAX_PATH], symPath[MAX_PATH];
     buildPath(path, district, "reports.dat");
     snprintf(symPath, MAX_PATH, "active_reports-%s", district);
 
+    // Verificam dacă legatura simbolică e valida
     struct stat symSt, targetSt;
     if (lstat(symPath, &symSt) == 0 && S_ISLNK(symSt.st_mode)) {
         if (stat(symPath, &targetSt) == -1) {
-            printf("Avertisment: Linkul %s atarna in gol!\n", symPath);
+            printf("Avertisment: Linkul %s este invalida!\n", symPath);
         }
     }
 
     if (!hasPermission(path, S_IRUSR, S_IRGRP)) return;
 
+    // Afisam metadata despre fisier
     struct stat st;
     if (stat(path, &st) != -1) {
         char perm[10];
@@ -233,6 +269,7 @@ void list(const char *district) {
 
     Report r;
     printf("\nID,Inspector,Categorie,Severitate\n");
+    // read() returneaza cati bytes a citit. Atat timp cat reuseste sa citeasca o structura intreaga, continuam
     while (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
         printf("%d   %s   %s   %d\n", r.id, r.inspector, r.category, r.severity);
     }
@@ -240,6 +277,7 @@ void list(const char *district) {
     logOperation(district, "LIST");
 }
 
+// Functia pentru comanda --view: afiseaza toate detaliile pentru un anumit ID
 void view(const char *district, int targetId) {
     char path[MAX_PATH];
     buildPath(path, district, "reports.dat");
@@ -256,15 +294,20 @@ void view(const char *district, int targetId) {
     int found = 0;
     while (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
         if (r.id == targetId) {
-            printf("\n--- Detalii Raport #%d ---\n", r.id);
+            printf("\nDetalii Raport #%d\n", r.id);
             printf("Inspector: %s\n", r.inspector);
             printf("Coordonate GPS: (%.4f, %.4f)\n", r.lat, r.lon);
             printf("Categorie: %s\n", r.category);
             printf("Severitate: %d\n", r.severity);
-            printf("Data inregistrarii: %s", ctime(&r.timestamp));
+            
+            // Formatam data si taiem \n pe care ctime il adaugă implicit
+            char *timeStr = ctime(&r.timestamp);
+            timeStr[strcspn(timeStr, "\n")] = 0;
+            printf("Data inregistrarii: %s\n", timeStr);
+            
             printf("Descriere: %s\n", r.description);
             found = 1;
-            break;
+            break; // Am gasit ce cautam, nu mai are sens să citim restul fisierului
         }
     }
     close(fd);
@@ -276,6 +319,7 @@ void view(const char *district, int targetId) {
     }
 }
 
+// Functia pentru comanda --remove_report: sterge "in-place" din interiorul fișierului binar
 void remove_report(const char *district, int targetId) {
     if (strcmp(currentRole, "manager") != 0) {
         printf("Doar managerul poate sterge rapoarte!\n"); return;
@@ -285,14 +329,17 @@ void remove_report(const char *district, int targetId) {
     buildPath(path, district, "reports.dat");
     if (!hasPermission(path, S_IWUSR, 0)) return;
 
+    // O_RDWR ne permite sa citim si sa scriem simultan in acelasi fisier
     int fd = open(path, O_RDWR);
     if (fd == -1) return;
 
     Report r;
     off_t targetPos = -1;
 
+    // Căutam exact la ce offset se află raportul pe care vrem sa il stergem
     while (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
         if (r.id == targetId) {
+            // lseek cu SEEK_CUR afla unde suntem acum. Scadem marimea structurii ca sa ne intoarcem la inceputul ei
             targetPos = lseek(fd, 0, SEEK_CUR) - sizeof(Report);
             break;
         }
@@ -305,9 +352,12 @@ void remove_report(const char *district, int targetId) {
 
     struct stat st;
     fstat(fd, &st);
+    
+    // readPos = de unde luam rapoartele urmatoare; writePos = unde le punem (peste raportul sters)
     off_t readPos = targetPos + sizeof(Report);
     off_t writePos = targetPos;
 
+    // Mutam toate rapoartele de la dreapta spre stanga pentru a astupa gaura
     while (readPos < st.st_size) {
         lseek(fd, readPos, SEEK_SET); read(fd, &r, sizeof(Report));
         lseek(fd, writePos, SEEK_SET); write(fd, &r, sizeof(Report));
@@ -315,13 +365,40 @@ void remove_report(const char *district, int targetId) {
         writePos += sizeof(Report);
     }
 
-    ftruncate(fd, st.st_size - sizeof(Report));
+    // Acum avem o dublura a ultimului raport la coada. Taiem finalul fisierului.
+    off_t newSize = st.st_size - sizeof(Report);
+    ftruncate(fd, newSize);
+
+    // Recalcularea ID-ului urmator 
+    int nextIdToSave = 1; // Presupunem 1 daca fisierul ajunge gol
+    
+    if (newSize > 0) {
+        // Ducem cursorul fix pe ultima structura ramasa in fisier
+        lseek(fd, newSize - sizeof(Report), SEEK_SET);
+        if (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
+            // Urmatorul ID va fi ID-ul ultimei intrari din fisier + 1
+            nextIdToSave = r.id + 1;
+        }
+    }
+
+    // Salvam noul next_id logic în next_id.txt
+    char idPath[MAX_PATH];
+    buildPath(idPath, district, "next_id.txt");
+    int idFd = open(idPath, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+    if (idFd != -1) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%d\n", nextIdToSave);
+        write(idFd, buf, strlen(buf));
+        close(idFd);
+    }
+
     close(fd);
     
     logOperation(district, "REMOVE");
-    printf("Raport sters cu succes.\n");
+    printf("Raport sters cu succes. Urmatorul ID va fi %d.\n", nextIdToSave);
 }
 
+// Managerul actualizeaza un parametru de configuratie
 void updateThreshold(const char *district, int val) {
     if (strcmp(currentRole, "manager") != 0) {
         printf("Eroare: Doar managerii pot actualiza pragul.\n");
@@ -331,6 +408,7 @@ void updateThreshold(const char *district, int val) {
     char path[MAX_PATH];
     buildPath(path, district, "district.cfg");
 
+    // Verificam dacă fisierul exista si daca permisiunile lui nu au fost manipulate (trebuie să fie strict 0640)
     struct stat st;
     if (stat(path, &st) == 0) {
         if ((st.st_mode & 0777) != 0640) {
@@ -339,6 +417,7 @@ void updateThreshold(const char *district, int val) {
         }
     }
 
+    // O_TRUNC va goli fisierul inainte sa scriem noua valoare
     int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0640);
     if (fd == -1) return;
     chmod(path, 0640); 
@@ -352,6 +431,7 @@ void updateThreshold(const char *district, int val) {
     printf("Threshold actualizat la %d.\n", val);
 }
 
+// Filtreaza rapoartele pe baza unor conditii multiple (funcționează cu 'si' logic intre conditii)
 void filter(const char *district, int condCount, char *conditions[]) {
     char path[MAX_PATH];
     buildPath(path, district, "reports.dat");
@@ -365,14 +445,14 @@ void filter(const char *district, int condCount, char *conditions[]) {
     printf("\nRapoarte filtrate:\nID\tInspector\tSeveritate\tCategorie\n");
 
     while (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
-        int matchAll = 1;
+        int matchAll = 1; // Presupunem ca raportul se potriveste pana probam contrariul
         
         for (int i = 0; i < condCount; i++) {
             char field[32], op[4], value[64];
             
             if (parseCondition(conditions[i], field, op, value)) {
                 if (!matchCondition(&r, field, op, value)) {
-                    matchAll = 0;
+                    matchAll = 0; // O singura conditie picata invalideaza raportul
                     break; 
                 }
             } else {
@@ -389,16 +469,19 @@ void filter(const char *district, int condCount, char *conditions[]) {
 }
 
 int main(int argc, char *argv[]) {
+    // Validare a numarului minim de argumente (ex: ./app --role manager --user ion --list sector1)
     if (argc < 7) {
         printf("Numar incorect de argumente!\n");
         return 1;
     }
 
+    // Prevenim atacuri de tip Directory Traversal ("../")
     if (strchr(argv[6], '/') != NULL || strchr(argv[6], '.') != NULL) {
         printf("Nume de district invalid! Fara caractere speciale.\n");
         return 1;
     }
 
+    // Extragem valorile presupunand ca ordinea flag-urilor este mereu aceeasi
     strncpy(currentRole, argv[2], STR_LEN - 1);
     currentRole[STR_LEN - 1] = '\0';
     
@@ -408,8 +491,10 @@ int main(int argc, char *argv[]) {
     char *cmd = argv[5];
     char *district = argv[6];
 
+    // Asiguram ca ecosistemul districtului exista
     initDistrict(district);
 
+    // Rutarea comenzilor catre functiile corespunzatoare
     if (strcmp(cmd, "--add") == 0) {
         add(district);
     } 
@@ -430,10 +515,11 @@ int main(int argc, char *argv[]) {
     }
     else if (strcmp(cmd, "--filter") == 0) {
         if (argc < 8) { printf("Lipsesc conditiile.\n"); return 1; }
-        filter(district, argc - 7, &argv[7]);
+        filter(district, argc - 7, &argv[7]); // Trimitem restul argumentelor ca array de conditii
     }
     else {
         printf("Comanda necunoscuta: %s\n", cmd);
     }
+    
     return 0;
 }

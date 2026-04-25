@@ -1,0 +1,8 @@
+[1777115656] Role: manager | User: alice | Act: ADD
+[1777115746] Role: manager | User: alice | Act: ADD
+[1777115761] Role: manager | User: alice | Act: ADD
+[1777115777] Role: manager | User: alice | Act: ADD
+[1777115856] Role: inspector | User: bob | Act: LIST
+[1777115906] Role: manager | User: alice | Act: REMOVE
+[1777115920] Role: inspector | User: bob | Act: FILTER
+[1777115930] Role: inspector | User: bob | Act: FILTER

@@ -6,3 +6,4 @@
 [1777115906] Role: manager | User: alice | Act: REMOVE
 [1777115920] Role: inspector | User: bob | Act: FILTER
 [1777115930] Role: inspector | User: bob | Act: FILTER
+[1777116383] Role: manager | User: sefu | Act: UPDATE_THRESHOLD

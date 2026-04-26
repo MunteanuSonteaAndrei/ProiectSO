@@ -324,7 +324,7 @@ void view(const char *district, int targetId) {
     }
 }
 
-// Șterge un raport și taie finalul fișierului, fără să se mai complice cu next_id.txt
+// Șterge un raport și taie finalul fișierului
 void remove_report(const char *district, int targetId) {
     if (strcmp(currentRole, "manager") != 0) {
         printf("Doar managerul poate sterge rapoarte!\n"); return;

@@ -164,34 +164,39 @@ void initDistrict(const char *district) {
     symlink(targetPath, symlinkName); // Cream unul nou care pointează catre rapoarte
 }
 
-// Citeste urmatorul ID disponibil si il incrementează în fisierul next_id.txt
+// Calculează următorul ID
 int getNextId(const char *district) {
     char path[MAX_PATH];
-    buildPath(path, district, "next_id.txt");
-    int id = 1; // Default pornim de la 1
+    buildPath(path, district, "reports.dat");
     
+    // Deschidem fișierul în mod Read-Only
     int fd = open(path, O_RDONLY);
-    if (fd != -1) {
-        char buf[32];
-        ssize_t bytes = read(fd, buf, sizeof(buf) - 1);
-        if (bytes > 0) {
-            buf[bytes] = '\0';
-            id = atoi(buf); // Convertim stringul din fisier în număr
-        }
-        close(fd);
+    if (fd == -1) {
+        // Dacă fișierul nu există încă, înseamnă că este primul raport
+        return 1;
     }
     
-    // Suprascriem fișierul cu ID-ul actualizat pentru următoarea adăugare
-    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0664);
-    if (fd != -1) {
-        chmod(path, 0664);
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%d\n", id + 1);
-        write(fd, buf, strlen(buf));
+    struct stat st;
+    fstat(fd, &st);
+    
+    if (st.st_size < sizeof(Report)) {
+        // Dacă fișierul este gol (sau corupt, mai mic decât un raport), pornim de la 1
         close(fd);
+        return 1;
     }
     
-    return id;
+    // Folosim SEEK_END pentru a sări fix la ultimul raport din fișier
+    // Ne întoarcem de la final cu exact mărimea unei structuri Report
+    lseek(fd, -sizeof(Report), SEEK_END);
+    
+    Report lastReport;
+    if (read(fd, &lastReport, sizeof(Report)) == sizeof(Report)) {
+        close(fd);
+        return lastReport.id + 1; // Returnăm ID-ul ultimului raport + 1
+    }
+    
+    close(fd);
+    return 1; // Fallback de siguranță în caz că read() eșuează
 }
 
 // Funcția pentru comanda --add: insereaza un raport nou la finalul binarului
@@ -319,7 +324,7 @@ void view(const char *district, int targetId) {
     }
 }
 
-// Functia pentru comanda --remove_report: sterge "in-place" din interiorul fișierului binar
+// Șterge un raport și taie finalul fișierului, fără să se mai complice cu next_id.txt
 void remove_report(const char *district, int targetId) {
     if (strcmp(currentRole, "manager") != 0) {
         printf("Doar managerul poate sterge rapoarte!\n"); return;
@@ -329,17 +334,15 @@ void remove_report(const char *district, int targetId) {
     buildPath(path, district, "reports.dat");
     if (!hasPermission(path, S_IWUSR, 0)) return;
 
-    // O_RDWR ne permite sa citim si sa scriem simultan in acelasi fisier
     int fd = open(path, O_RDWR);
     if (fd == -1) return;
 
     Report r;
     off_t targetPos = -1;
 
-    // Căutam exact la ce offset se află raportul pe care vrem sa il stergem
+    // Căutăm offset-ul (poziția) raportului pe care vrem să îl ștergem
     while (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
         if (r.id == targetId) {
-            // lseek cu SEEK_CUR afla unde suntem acum. Scadem marimea structurii ca sa ne intoarcem la inceputul ei
             targetPos = lseek(fd, 0, SEEK_CUR) - sizeof(Report);
             break;
         }
@@ -353,11 +356,10 @@ void remove_report(const char *district, int targetId) {
     struct stat st;
     fstat(fd, &st);
     
-    // readPos = de unde luam rapoartele urmatoare; writePos = unde le punem (peste raportul sters)
     off_t readPos = targetPos + sizeof(Report);
     off_t writePos = targetPos;
 
-    // Mutam toate rapoartele de la dreapta spre stanga pentru a astupa gaura
+    // Mutăm toate rapoartele de la dreapta spre stânga pentru a acoperi golul
     while (readPos < st.st_size) {
         lseek(fd, readPos, SEEK_SET); read(fd, &r, sizeof(Report));
         lseek(fd, writePos, SEEK_SET); write(fd, &r, sizeof(Report));
@@ -365,37 +367,14 @@ void remove_report(const char *district, int targetId) {
         writePos += sizeof(Report);
     }
 
-    // Acum avem o dublura a ultimului raport la coada. Taiem finalul fisierului.
+    // Tăiem structura duplicată rămasă la finalul fișierului
     off_t newSize = st.st_size - sizeof(Report);
     ftruncate(fd, newSize);
-
-    // Recalcularea ID-ului urmator 
-    int nextIdToSave = 1; // Presupunem 1 daca fisierul ajunge gol
     
-    if (newSize > 0) {
-        // Ducem cursorul fix pe ultima structura ramasa in fisier
-        lseek(fd, newSize - sizeof(Report), SEEK_SET);
-        if (read(fd, &r, sizeof(Report)) == sizeof(Report)) {
-            // Urmatorul ID va fi ID-ul ultimei intrari din fisier + 1
-            nextIdToSave = r.id + 1;
-        }
-    }
-
-    // Salvam noul next_id logic în next_id.txt
-    char idPath[MAX_PATH];
-    buildPath(idPath, district, "next_id.txt");
-    int idFd = open(idPath, O_WRONLY | O_CREAT | O_TRUNC, 0664);
-    if (idFd != -1) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "%d\n", nextIdToSave);
-        write(idFd, buf, strlen(buf));
-        close(idFd);
-    }
-
-    close(fd);
+    close(fd); // Gata, modificările au fost salvate
     
     logOperation(district, "REMOVE");
-    printf("Raport sters cu succes. Urmatorul ID va fi %d.\n", nextIdToSave);
+    printf("Raport sters cu succes.\n");
 }
 
 // Managerul actualizeaza un parametru de configuratie

@@ -7,3 +7,11 @@
 [1777115920] Role: inspector | User: bob | Act: FILTER
 [1777115930] Role: inspector | User: bob | Act: FILTER
 [1777116383] Role: manager | User: sefu | Act: UPDATE_THRESHOLD
+[1777142323] Role: manager | User: radu | Act: ADD
+[1777142382] Role: inspector | User: bob | Act: LIST
+[1777223833] Role: inspector | User: bob | Act: LIST
+[1777223874] Role: manager | User: alice | Act: ADD
+[1777223897] Role: inspector | User: bob | Act: LIST
+[1777223903] Role: manager | User: alice | Act: REMOVE
+[1777223906] Role: inspector | User: bob | Act: LIST
+[1777223920] Role: manager | User: alice | Act: ADD

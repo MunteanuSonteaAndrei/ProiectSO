@@ -450,46 +450,27 @@ void filter(const char *district, int condCount, char *conditions[]) {
 
 // Sterge directorul unui district
 void remove_district(const char *district) {
-    //Verificam permisiunile: doar managerul are voie
     if (strcmp(currentRole, "manager") != 0) {
         printf("Eroare: Doar managerii pot sterge un district!\n");
         return;
     }
-
-    //stergem legatura
     char symlinkName[MAX_PATH];
     snprintf(symlinkName, MAX_PATH, "active_reports-%s", district);
     
-    if (unlink(symlinkName) == 0) {
-        printf("Legatura '%s' a fost stearsa.\n", symlinkName);
-    } else {
-        perror("Avertisment la stergerea symlink-ului");
-    }
-
-    //Cream un proces copil pentru a sterge efectiv folderul
     pid_t pid = fork();
 
     if (pid == -1) {
-        // Fork a esuat
-        perror("Eroare la crearea procesului copil (fork)");
         return;
     } 
     else if (pid == 0) {
+        unlink(symlinkName);
         execlp("rm", "rm", "-rf", district, NULL);
-        perror("Eroare la executarea comenzii rm");
-        exit(1); 
+        perror("Eroare la fork!");
+        return;
     } 
     else {
-        int status;
-        // Parintele așteapta ca executia procesului copil sa se termine
-        waitpid(pid, &status, 0);
-        
-        // Verificam daca procesul copil s-a terminat fară erori
-        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-            printf("Districtul '%s' si toate datele sale au fost sterse cu succes.\n", district);
-        } else {
-            printf("Eroare: Comanda de stergere a esuat pentru districtul '%s'.\n", district);
-        }
+        waitpid(pid,0, 0);
+        printf("Districtul %s a fost sters cu succes\n", district);
     }
 }
 

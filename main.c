@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #define MAX_PATH 256
 #define STR_LEN 32
@@ -447,6 +448,51 @@ void filter(const char *district, int condCount, char *conditions[]) {
     logOperation(district, "FILTER");
 }
 
+// Sterge directorul unui district
+void remove_district(const char *district) {
+    //Verificam permisiunile: doar managerul are voie
+    if (strcmp(currentRole, "manager") != 0) {
+        printf("Eroare: Doar managerii pot sterge un district!\n");
+        return;
+    }
+
+    //stergem legatura
+    char symlinkName[MAX_PATH];
+    snprintf(symlinkName, MAX_PATH, "active_reports-%s", district);
+    
+    if (unlink(symlinkName) == 0) {
+        printf("Legatura '%s' a fost stearsa.\n", symlinkName);
+    } else {
+        perror("Avertisment la stergerea symlink-ului");
+    }
+
+    //Cream un proces copil pentru a sterge efectiv folderul
+    pid_t pid = fork();
+
+    if (pid == -1) {
+        // Fork a esuat
+        perror("Eroare la crearea procesului copil (fork)");
+        return;
+    } 
+    else if (pid == 0) {
+        execlp("rm", "rm", "-rf", district, NULL);
+        perror("Eroare la executarea comenzii rm");
+        exit(1); 
+    } 
+    else {
+        int status;
+        // Parintele așteapta ca executia procesului copil sa se termine
+        waitpid(pid, &status, 0);
+        
+        // Verificam daca procesul copil s-a terminat fară erori
+        if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+            printf("Districtul '%s' si toate datele sale au fost sterse cu succes.\n", district);
+        } else {
+            printf("Eroare: Comanda de stergere a esuat pentru districtul '%s'.\n", district);
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     // Validare a numarului minim de argumente (ex: ./app --role manager --user ion --list sector1)
     if (argc < 7) {
@@ -495,6 +541,9 @@ int main(int argc, char *argv[]) {
     else if (strcmp(cmd, "--filter") == 0) {
         if (argc < 8) { printf("Lipsesc conditiile.\n"); return 1; }
         filter(district, argc - 7, &argv[7]); // Trimitem restul argumentelor ca array de conditii
+    }
+    else if (strcmp(cmd, "--remove_district") == 0) {
+        remove_district(district);
     }
     else {
         printf("Comanda necunoscuta: %s\n", cmd);

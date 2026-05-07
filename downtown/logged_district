@@ -15,3 +15,9 @@
 [1777223903] Role: manager | User: alice | Act: REMOVE
 [1777223906] Role: inspector | User: bob | Act: LIST
 [1777223920] Role: manager | User: alice | Act: ADD
+[1778134919] Role: manager | User: alice | Act: ADD
+[1778134919] Role: manager | User: alice | Act: THE MONITOR COULD NOT BE NOTIFIED
+[1778135163] Role: manager | User: alice | Act: ADD
+[1778135163] Role: manager | User: alice | Act: THE MONITOR COULD NOT BE NOTIFIED
+[1778135333] Role: manager | User: alice | Act: ADD
+[1778135333] Role: manager | User: alice | Act: THE MONITOR COULD NOT BE NOTIFIED

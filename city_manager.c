@@ -8,9 +8,12 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <signal.h>
+#include <sys/types.h>
 
 #define MAX_PATH 256
 #define STR_LEN 32
+#define FILENAME ".monitor_pid"
 
 char currentRole[STR_LEN];
 char currentUser[STR_LEN];
@@ -244,6 +247,27 @@ void add(const char *district) {
     
     logOperation(district, "ADD");
     printf("Raport adaugat!\n");
+    
+    int err=0;
+    int file = open(FILENAME, O_WRONLY | O_CREAT | O_APPEND, 0664);
+    if (file == -1) {
+        err=1;
+        close(file);
+    }
+
+    pid_t target_pid;
+    if (read(file, &target_pid, sizeof(pid_t))) {
+        err=1;
+        close(file);
+    }
+
+    close(file);
+    if(err==1){
+        logOperation(district, "THE MONITOR COULD NOT BE NOTIFIED");
+    }else{
+        logOperation(district, "THE MONITOR WAS NOTIFIED");
+         kill(target_pid, SIGUSR1);
+    }
 }
 
 // Funcția pentru comanda --list: citeste rapoartele rand pe rand din binar

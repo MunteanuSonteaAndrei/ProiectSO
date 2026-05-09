@@ -249,19 +249,23 @@ void add(const char *district) {
     printf("Raport adaugat!\n");
     
     int err=0;
-    int file = open(FILENAME, O_WRONLY | O_CREAT | O_APPEND, 0664);
+    int file = open(FILENAME, O_RDONLY);
     if (file == -1) {
         err=1;
         close(file);
     }
 
     pid_t target_pid;
-    if (read(file, &target_pid, sizeof(pid_t))) {
-        err=1;
+
+    if (file == -1) {
+        err = 1;
+    } else {
+        if (read(file, &target_pid, sizeof(pid_t)) != sizeof(pid_t)) {
+        err = 1;
         close(file);
     }
-
     close(file);
+}
     if(err==1){
         logOperation(district, "THE MONITOR COULD NOT BE NOTIFIED");
     }else{

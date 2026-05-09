@@ -12,7 +12,7 @@
 
 void sigusr1_handler(int signal)
 {       
-    char buff[]="A new report has been added!";
+    char buff[]="A new report has been added!\n";
     if (signal == SIGUSR1){
         write(STDOUT_FILENO, buff, sizeof(buff));
     }
@@ -21,7 +21,9 @@ void sigusr1_handler(int signal)
 
 void sigint_handler(int signal)
 {       
+    char buff[]="The program stopped(SIGINT)!\n";
     if (signal == SIGINT){
+        write(STDOUT_FILENO, buff, sizeof(buff));
         unlink(FILENAME);
         exit(1);
     }
@@ -51,7 +53,7 @@ void set_signal_action2(void){
 }
 
 int main(void) {
-    int fi = open(FILENAME, O_WRONLY | O_CREAT | O_APPEND, 0664);
+    int fi = open(FILENAME, O_WRONLY | O_CREAT, 0664);
     
     chmod(FILENAME, 0664);
     
@@ -66,6 +68,7 @@ int main(void) {
     set_signal_action2();
     
     while(1){
+        sleep(1);
         
     }
 

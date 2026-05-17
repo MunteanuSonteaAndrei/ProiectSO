@@ -1,5 +1,7 @@
 Tool folosit: Gemini AI
 
+Phase 1
+
 1. Funcția `parse_condition`
 
 Promptul oferit AI-ului:
@@ -47,4 +49,8 @@ Am modificat manual codul pentru a folosi funcția strcmp() deblocând astfel co
 
 if (strcmp(op, "==") == 0) return strcmp(r->category, value) == 0;
 
+Phase 2
+
 3. Am folosit AI-ul pentru a-mi explica anumite functii pe care le-am utilizat si cum se folosesc acestea (sigaction(), kill(), exec*(), fork()) + Am folosit informatii de pe StackOverflow
+
+4. Am folosit AI-ul 

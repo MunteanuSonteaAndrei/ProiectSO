@@ -53,7 +53,19 @@ void set_signal_action2(void){
 }
 
 int main(void) {
-    int fi = open(FILENAME, O_WRONLY | O_CREAT, 0664);
+    int fi;
+    if( (fi = open(FILENAME, O_WRONLY, 0664)) == -1){
+        fi = open(FILENAME, O_WRONLY | O_CREAT, 0664);
+    }else{
+        pid_t pid;
+        read(fi, &pid, sizeof(pid_t));
+        close(fi);
+
+        char buff[20];
+        sprintf(buff, "%d\n", pid);
+        write(STDOUT_FILENO, buff, sizeof(buff));
+        exit(1);
+    }
     
     chmod(FILENAME, 0664);
     

@@ -54,16 +54,17 @@ void set_signal_action2(void){
 
 int main(void) {
     int fi;
-    if( (fi = open(FILENAME, O_WRONLY, 0664)) == -1){
+    if( (fi = open(FILENAME, O_RDONLY, 0664)) == -1){
         fi = open(FILENAME, O_WRONLY | O_CREAT, 0664);
     }else{
         pid_t pid;
         read(fi, &pid, sizeof(pid_t));
         close(fi);
 
-        char buff[20];
-        sprintf(buff, "%d\n", pid);
-        write(STDOUT_FILENO, buff, sizeof(buff));
+        char buff[128];
+        int len = sprintf(buff, "[ERROR] Monitorul ruleaza deja! ID existent: %d\n", pid);
+        write(STDOUT_FILENO, buff, len);
+        close(fi);
         exit(1);
     }
     
